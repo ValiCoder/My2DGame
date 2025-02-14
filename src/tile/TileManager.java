@@ -9,25 +9,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-public class TileManager {
+public class TileManager implements Runnable {
 
     GamePanel gp;
     public Tile[] tile;
     public int[][] mapTileNum;
+    private Thread loadThread;
 
     public TileManager(GamePanel gp) {
-        mapTileNum = new int[gp.maxWorldCol][gp.maxWorldRow];
         this.gp = gp;
         tile = new Tile[100];
-        getTileImage();
-        loadMap();
+        mapTileNum = new int[gp.maxWorldCol][gp.maxWorldRow];
 
+        // Start loading in a separate thread
+        loadThread = new Thread(this);
+        loadThread.start();
     }
 
     public void getTileImage() {
-
         try {
-
             tile[0] = new Tile();
             tile[0].image = ImageIO.read(getClass().getResourceAsStream("/tiles/grass.png"));
 
@@ -70,15 +70,12 @@ public class TileManager {
             tile[12] = new Tile();
             tile[12].image = ImageIO.read(getClass().getResourceAsStream("/tiles/planks.png"));
 
-        }
-
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public void loadMap() {
-
         try {
             InputStream is = getClass().getResourceAsStream("/maps/worldtest.txt");
             BufferedReader br = new BufferedReader(new InputStreamReader(is));
@@ -86,23 +83,26 @@ public class TileManager {
             int col = 0;
             int row = 0;
 
-            while (col < gp.maxWorldRow && row < gp.maxWorldRow) {
-
+            while (row < gp.maxWorldRow) { // Corrected condition
                 String line = br.readLine();
+                if (line == null) break; // Handle end of file
 
-                while (col < gp.maxWorldRow) {
-                    String[] numbers = line.split(" ");
-
-                    int num = Integer.parseInt(numbers[col]);
-
-                    mapTileNum[col][row] = num;
-                    col++;
+                String[] numbers = line.split(" ");
+                for (col = 0; col < Math.min(numbers.length, gp.maxWorldCol); col++) { //Prevent array index out of bounds
+                    try {
+                        int num = Integer.parseInt(numbers[col]);
+                        mapTileNum[col][row] = num;
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error parsing tile number at row " + row + ", col " + col + ": " + numbers[col]);
+                        // Handle the error appropriately, e.g., use a default tile
+                        mapTileNum[col][row] = 0; // Or another default tile index
+                    }
                 }
-                if (col == gp.maxWorldCol) {
-                    col = 0;
-                    row++;
-                }
+                row++;
+
             }
+            br.close();
+            is.close();
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -110,7 +110,10 @@ public class TileManager {
     }
 
     public void draw(Graphics2D g2) {
-
+        if (loadThread.isAlive()) {
+            // Map is still loading, maybe draw a loading screen or nothing
+            return; // Don't try to draw until the map is loaded
+        }
         int worldCol = 0;
         int worldRow = 0;
 
@@ -124,9 +127,9 @@ public class TileManager {
             int screenY = worldY - gp.player.worldY + gp.player.screenY;
 
             if (worldX + gp.tileSize > gp.player.worldX - gp.player.screenX &&
-                worldX - gp.tileSize< gp.player.worldX + screenX &&
-                worldY + gp.tileSize> gp.player.worldY - gp.player.screenY &&
-                worldY - gp.tileSize< gp.player.worldY + gp.player.screenY) {
+                    worldX - gp.tileSize < gp.player.worldX + gp.player.screenX &&
+                    worldY + gp.tileSize > gp.player.worldY - gp.player.screenY &&
+                    worldY - gp.tileSize < gp.player.worldY + gp.player.screenY) {
 
                 g2.drawImage(tile[tileNum].image, screenX, screenY, gp.tileSize, gp.tileSize, null);
             }
@@ -139,6 +142,10 @@ public class TileManager {
             }
         }
     }
+
+    @Override
+    public void run() {
+        getTileImage();
+        loadMap();
+    }
 }
-
-

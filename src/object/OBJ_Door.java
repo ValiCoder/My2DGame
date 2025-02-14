@@ -7,9 +7,20 @@ public class OBJ_Door extends SuperObject {
 
     public OBJ_Door() {
 
+        boolean isOpen = false;
         name = "door";
         try {
-            image = ImageIO.read(getClass().getResourceAsStream("/objects/doorOpen.png"));
+            if (isOpen = false) {
+
+                image = ImageIO.read(getClass().getResourceAsStream("/objects/doorClosed.png"));
+
+            }
+
+            else {
+
+                image = ImageIO.read(getClass().getResourceAsStream("/objects/doorOpen.png"));
+
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
